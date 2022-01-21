@@ -2,6 +2,7 @@
 
 import SwiftttCamera
 import UIKit
+import AVFoundation
 
 class DemoViewController : UIViewController {
     // MARK: - Content
@@ -54,7 +55,7 @@ class DemoViewController : UIViewController {
         let result = UIStackView(arrangedSubviews: [
             flashButton,
             torchButton,
-            switchCameraButton,
+            switchCameraButton
         ])
         result.distribution = .fillProportionally
         result.translatesAutoresizingMaskIntoConstraints = false
@@ -70,13 +71,30 @@ class DemoViewController : UIViewController {
         return result
     }()
 
+    private lazy var visionLabel: UILabel = {
+        let result = UILabel()
+        result.text = "Searching"
+        result.textColor = .white
+        result.textAlignment = .center
+        result.translatesAutoresizingMaskIntoConstraints = false
+        return result
+    }()
+
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
         title = NSLocalizedString("Demo", comment: "")
         tabBarItem.image = #imageLiteral(resourceName: "aperture")
+
+        let dataOutput = AVCaptureVideoDataOutput()
+        dataOutput.setSampleBufferDelegate(self, queue: DispatchQueue(label: "visionQueue"))
+        camera.videoOutput = dataOutput
+
+        try? setupVision()
+
         swiftttAddChild(camera)
         view.addSubview(stackView)
+        view.addSubview(visionLabel)
         view.addSubview(shutterButton)
         NSLayoutConstraint.activate([
             // Camera view
@@ -89,6 +107,13 @@ class DemoViewController : UIViewController {
             stackView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             stackView.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor),
             stackView.heightAnchor.constraint(equalToConstant: 44),
+
+            // Vision label
+            visionLabel.heightAnchor.constraint(equalToConstant: 30),
+            visionLabel.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            visionLabel.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            visionLabel.bottomAnchor.constraint(equalTo: shutterButton.topAnchor, constant: -16),
+
             // Shutter button
             shutterButton.centerXAnchor.constraint(equalTo: view.centerXAnchor),
             shutterButton.heightAnchor.constraint(equalToConstant: 88),
@@ -127,6 +152,81 @@ class DemoViewController : UIViewController {
             setTorch(enabled: false)
         }
     }
+
+    // Vision parts
+    private var requests = [VNRequest]()
+}
+
+import Vision
+
+extension DemoViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
+
+
+    func setupVision() throws {
+
+        guard let modelURL = Bundle.main.url(forResource: "ObjectDetector", withExtension: "mlmodelc") else {
+            throw NSError(domain: "DemoViewController", code: -1, userInfo: [NSLocalizedDescriptionKey: "Model file is missing"])
+        }
+        let visionModel = try VNCoreMLModel(for: MLModel(contentsOf: modelURL))
+        let objectRecognition = VNCoreMLRequest(model: visionModel, completionHandler: { (request, error) in
+            print("Recognized \(request.results?.count) objects.")
+            DispatchQueue.main.async(execute: {
+                // perform all the UI updates on the main queue
+                if let results = request.results {
+                    self.drawVisionRequestResults(results)
+                }
+            })
+        })
+        self.requests = [objectRecognition]
+    }
+
+
+    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+        print("Received sample buffer of size \(sampleBuffer.totalSampleSize).")
+        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+            return
+        }
+
+        let exifOrientation = exifOrientationFromDeviceOrientation()
+
+        let imageRequestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: exifOrientation, options: [:])
+        do {
+            try imageRequestHandler.perform(self.requests)
+        } catch {
+            print(error)
+        }
+    }
+
+    func drawVisionRequestResults(_ results: [Any]) {
+        for observation in results where observation is VNRecognizedObjectObservation {
+            guard let objectObservation = observation as? VNRecognizedObjectObservation, let topLabelObservation = objectObservation.labels.first else {
+                self.visionLabel.text = "Searching"
+                continue
+            }
+            self.visionLabel.text = "\(topLabelObservation.identifier) (\(topLabelObservation.confidence))"
+        }
+
+    }
+
+    public func exifOrientationFromDeviceOrientation() -> CGImagePropertyOrientation {
+        let curDeviceOrientation = UIDevice.current.orientation
+        let exifOrientation: CGImagePropertyOrientation
+
+        switch curDeviceOrientation {
+        case UIDeviceOrientation.portraitUpsideDown:  // Device oriented vertically, home button on the top
+            exifOrientation = .left
+        case UIDeviceOrientation.landscapeLeft:       // Device oriented horizontally, home button on the right
+            exifOrientation = .upMirrored
+        case UIDeviceOrientation.landscapeRight:      // Device oriented horizontally, home button on the left
+            exifOrientation = .down
+        case UIDeviceOrientation.portrait:            // Device oriented vertically, home button on the bottom
+            exifOrientation = .up
+        default:
+            exifOrientation = .up
+        }
+        return exifOrientation
+    }
+
 }
 
 extension DemoViewController : CameraDelegate {

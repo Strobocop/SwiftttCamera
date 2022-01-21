@@ -1,3 +1,7 @@
+The object detector model, located at SwiftttCameraDemo/ObjectDetector.mlmodel, is based on arXiv’s article, "YOLO9000: Better, Faster, Stronger" by Joseph Redmon, Ali Farhadi (CVPR 2017).
+
+The following license applies to the source code, and other elements of this package:
+
 BSD 2-Clause License
 
 Copyright (c) 2021, Roger Oba

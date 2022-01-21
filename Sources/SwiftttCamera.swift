@@ -19,6 +19,7 @@ public class SwiftttCamera : UIViewController, CameraProtocol {
     private var photoCapturePreviewOrientation: UIDeviceOrientation = .portrait
     private var cancellables = Set<AnyCancellable>()
 
+    public var videoOutput: AVCaptureVideoDataOutput?
     public weak var delegate: CameraDelegate?
     public weak var gestureDelegate: UIGestureRecognizerDelegate?
     public var handlesTapFocus: Bool = true
@@ -141,39 +142,51 @@ extension SwiftttCamera {
 
     private func handleDeviceAuthorization(_ authorized: Bool) {
         if authorized {
-            session = AVCaptureSession()
-            session.setSessionPresetIfPossible(.photo)
-            let device: AVCaptureDevice? = AVCaptureDevice.captureDevice(from: cameraDevice) ?? AVCaptureDevice.default(for: .video) // It's nil only in Simulator
-            do {
-                try device?.lockForConfiguration()
-                device?.setFocusModeIfSupported(.continuousAutoFocus)
-                device?.setExposureModeIfSupported(.continuousAutoExposure)
-                device?.unlockForConfiguration()
-                #if !targetEnvironment(simulator)
-                let deviceInput: AVCaptureDeviceInput = try  AVCaptureDeviceInput(device: device!)
-                session.addInputIfPossible(deviceInput)
-                switch device!.position {
-                case .back: cameraDevice = .rear
-                case .front: cameraDevice = .front
-                default: break
-                }
-                #endif
-                photoOutput = AVCapturePhotoOutput()
-                session.addOutputIfPossible(photoOutput)
-                deviceOrientation = DeviceOrientation()
-                if isViewLoaded && view.window != nil {
-                    startRunning()
-                    insertPreviewLayer()
-                    setPreviewVideoOrientation()
-                    resetZoom()
-                }
-            } catch {
-                dump(error)
-            }
+            setupCaptureSession()
         } else {
             delegate?.userDeniedCameraPermissions(forCameraController: self)
         }
     }
+
+    private func setupCaptureSession() {
+        guard session == nil else { return }
+        session = AVCaptureSession()
+        session.setSessionPresetIfPossible(.photo)
+        let device: AVCaptureDevice? = AVCaptureDevice.captureDevice(from: cameraDevice) ?? AVCaptureDevice.default(for: .video) // It's nil only in Simulator
+        do {
+            try device?.lockForConfiguration()
+            device?.setFocusModeIfSupported(.continuousAutoFocus)
+            device?.setExposureModeIfSupported(.continuousAutoExposure)
+            device?.unlockForConfiguration()
+            #if !targetEnvironment(simulator)
+            let deviceInput: AVCaptureDeviceInput = try  AVCaptureDeviceInput(device: device!)
+            session.addInputIfPossible(deviceInput)
+            switch device!.position {
+            case .back: cameraDevice = .rear
+            case .front: cameraDevice = .front
+            default: break
+            }
+            #endif
+
+            photoOutput = AVCapturePhotoOutput()
+            session.addOutputIfPossible(photoOutput)
+
+            if let videoOutput = videoOutput {
+                session.addOutputIfPossible(videoOutput)
+            }
+
+            deviceOrientation = DeviceOrientation()
+            if isViewLoaded && view.window != nil {
+                startRunning()
+                insertPreviewLayer()
+                setPreviewVideoOrientation()
+                resetZoom()
+            }
+        } catch {
+            dump(error)
+        }
+    }
+
 
     private func teardownCaptureSession() {
         guard session != nil else { return }
@@ -184,6 +197,11 @@ extension SwiftttCamera {
         }
         session.removeOutput(photoOutput)
         photoOutput = nil
+        if let videoOutput = videoOutput {
+            session.removeOutput(videoOutput)
+            self.videoOutput = nil
+        }
+
         removePreviewLayer()
         session = nil
     }

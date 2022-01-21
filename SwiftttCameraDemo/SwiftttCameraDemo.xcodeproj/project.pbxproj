@@ -18,6 +18,7 @@
 		C5EF979F26CCA709009C4DA1 /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = C5EF979E26CCA709009C4DA1 /* Assets.xcassets */; };
 		C5EF97A126CCAEE3009C4DA1 /* ConfirmationViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5EF97A026CCAEE3009C4DA1 /* ConfirmationViewController.swift */; };
 		C5EF97A526CDF796009C4DA1 /* BenchmarkParameters.swift in Sources */ = {isa = PBXBuildFile; fileRef = C5EF97A426CDF796009C4DA1 /* BenchmarkParameters.swift */; };
+		E4A5D07D279B51230039A745 /* ObjectDetector.mlmodel in Sources */ = {isa = PBXBuildFile; fileRef = E4A5D07C279B51230039A745 /* ObjectDetector.mlmodel */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -46,6 +47,7 @@
 		C5EF979E26CCA709009C4DA1 /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
 		C5EF97A026CCAEE3009C4DA1 /* ConfirmationViewController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ConfirmationViewController.swift; sourceTree = "<group>"; };
 		C5EF97A426CDF796009C4DA1 /* BenchmarkParameters.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = BenchmarkParameters.swift; sourceTree = "<group>"; };
+		E4A5D07C279B51230039A745 /* ObjectDetector.mlmodel */ = {isa = PBXFileReference; lastKnownFileType = file.mlmodel; name = ObjectDetector.mlmodel; path = SwiftttCameraDemo/ObjectDetector.mlmodel; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -70,6 +72,7 @@
 		C5EF975626CBD26A009C4DA1 = {
 			isa = PBXGroup;
 			children = (
+				E4A5D07C279B51230039A745 /* ObjectDetector.mlmodel */,
 				C5EF979A26CBE77E009C4DA1 /* SwiftttCamera */,
 				C5EF976126CBD26A009C4DA1 /* SwiftttCameraDemo */,
 				C5EF977826CBD26C009C4DA1 /* SwiftttCameraDemoTests */,
@@ -223,6 +226,7 @@
 			isa = PBXSourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				E4A5D07D279B51230039A745 /* ObjectDetector.mlmodel in Sources */,
 				C5EF97A126CCAEE3009C4DA1 /* ConfirmationViewController.swift in Sources */,
 				C5EF976726CBD26A009C4DA1 /* DemoViewController.swift in Sources */,
 				C5EF97A526CDF796009C4DA1 /* BenchmarkParameters.swift in Sources */,
@@ -385,7 +389,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 9M39ENBSMH;
+				DEVELOPMENT_TEAM = EB7NMUM83G;
 				INFOPLIST_FILE = SwiftttCameraDemo/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
@@ -404,7 +408,7 @@
 				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
 				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
 				CODE_SIGN_STYLE = Automatic;
-				DEVELOPMENT_TEAM = 9M39ENBSMH;
+				DEVELOPMENT_TEAM = EB7NMUM83G;
 				INFOPLIST_FILE = SwiftttCameraDemo/Info.plist;
 				LD_RUNPATH_SEARCH_PATHS = (
 					"$(inherited)",
