@@ -67,6 +67,12 @@ public class SwiftttCamera : UIViewController, CameraProtocol {
         NotificationCenter.default.addObserver(self, selector: #selector(applicationDidBecomeActive), name: UIApplication.didBecomeActiveNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(applicationWillResignActive), name: UIApplication.willResignActiveNotification, object: nil)
         NotificationCenter.default.addObserver(self, selector: #selector(applicationDidEnterBackground), name: UIApplication.didEnterBackgroundNotification, object: nil)
+
+        NotificationCenter.default.addObserver(self, selector: #selector(sessionDidStart), name: .AVCaptureSessionDidStartRunning, object: session)
+        NotificationCenter.default.addObserver(self, selector: #selector(sessionDidStop), name: .AVCaptureSessionDidStopRunning, object: session)
+        NotificationCenter.default.addObserver(self, selector: #selector(sessionWasInterrupted), name: .AVCaptureSessionWasInterrupted, object: session)
+        NotificationCenter.default.addObserver(self, selector: #selector(sessionInterruptionEnded), name: .AVCaptureSessionInterruptionEnded, object: session)
+        NotificationCenter.default.addObserver(self, selector: #selector(sessionRuntimeError), name: .AVCaptureSessionRuntimeError, object: session)
     }
 
 
@@ -102,7 +108,10 @@ public class SwiftttCamera : UIViewController, CameraProtocol {
     public override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         previewLayer?.frame = view.layer.bounds
+        setPreviewVideoOrientation()
+        
     }
+
 
     public override var supportedInterfaceOrientations: UIInterfaceOrientationMask {
         return .all
@@ -125,6 +134,9 @@ extension SwiftttCamera {
 
     private func setUpCaptureSession() {
         guard session == nil else { return }
+        DispatchQueue.main.async {
+            self.delegate?.cameraControllerDidBeginSessionSetup(self)
+        }
         #if targetEnvironment(simulator)
         deviceAuthorized = true
         handleDeviceAuthorization(deviceAuthorized)
@@ -159,7 +171,7 @@ extension SwiftttCamera {
             device?.setExposureModeIfSupported(.continuousAutoExposure)
             device?.unlockForConfiguration()
             #if !targetEnvironment(simulator)
-            let deviceInput: AVCaptureDeviceInput = try  AVCaptureDeviceInput(device: device!)
+            let deviceInput: AVCaptureDeviceInput = try AVCaptureDeviceInput(device: device!)
             session.addInputIfPossible(deviceInput)
             switch device!.position {
             case .back: cameraDevice = .rear
@@ -183,7 +195,7 @@ extension SwiftttCamera {
                 resetZoom()
             }
         } catch {
-            dump(error)
+            handleError(error)
         }
     }
 
@@ -191,7 +203,7 @@ extension SwiftttCamera {
     private func teardownCaptureSession() {
         guard session != nil else { return }
         deviceOrientation = nil
-        session.stopRunningIfNeeded()
+        stopRunning()
         for input in session.inputs {
             session.removeInput(input)
         }
@@ -215,6 +227,7 @@ extension SwiftttCamera {
         rootLayer.masksToBounds = true
         previewLayer = AVCaptureVideoPreviewLayer(session: session)
         previewLayer.videoGravity = .resizeAspectFill
+
         previewLayer.frame = rootLayer.bounds
         rootLayer.insertSublayer(previewLayer, at: 0)
     }
@@ -266,7 +279,7 @@ extension SwiftttCamera {
                 session.addInputIfPossible(newInput)
                 session.commitConfiguration()
             } catch {
-                dump(error)
+                handleError(error)
             }
         }
         resetZoom()
@@ -387,6 +400,13 @@ extension SwiftttCamera {
                 .store(in: &cancellables)
         }
     }
+
+    func handleError(_ error: Error) {
+        DispatchQueue.main.async {
+            self.delegate?.cameraController(self, didObserveError: error)
+        }
+
+    }
 }
 
 // MARK: - Observers
@@ -413,6 +433,61 @@ extension SwiftttCamera {
     private func applicationDidEnterBackground(_ notification: Notification) {
         teardownCaptureSession()
     }
+
+    @objc
+    private func sessionDidStart(notification: NSNotification) {
+        DispatchQueue.main.async {
+            self.delegate?.cameraControllerDidStartSession(self)
+        }
+    }
+
+    @objc
+    private func sessionDidStop(notification: NSNotification) {
+        DispatchQueue.main.async {
+            self.delegate?.cameraControllerDidStopSession(self)
+        }
+    }
+
+    /// - Tag: HandleInterruption
+    @objc
+    func sessionWasInterrupted(notification: NSNotification) {
+        /*
+         In some scenarios you want to enable the user to resume the session.
+         For example, if music playback is initiated from Control Center while
+         using AVCam, then the user can let AVCam resume
+         the session running, which will stop music playback. Note that stopping
+         music playback in Control Center will not automatically resume the session.
+         Also note that it's not always possible to resume, see `resumeInterruptedSession(_:)`.
+         */
+        if let userInfoValue = notification.userInfo?[AVCaptureSessionInterruptionReasonKey] as AnyObject?,
+            let reasonIntegerValue = userInfoValue.integerValue,
+            let reason = AVCaptureSession.InterruptionReason(rawValue: reasonIntegerValue) {
+            DispatchQueue.main.async {
+                self.delegate?.cameraControllerSessionWasInterrupted(self, for: reason)
+            }
+        }
+    }
+
+    @objc
+    func sessionInterruptionEnded(notification: NSNotification) {
+        DispatchQueue.main.async {
+            self.delegate?.cameraControllerSessionInterruptionEnded(self)
+        }
+    }
+
+    /// - Tag: HandleRuntimeError
+    @objc
+    private func sessionRuntimeError(notification: NSNotification) {
+        guard let error = notification.userInfo?[AVCaptureSessionErrorKey] as? AVError else { return }
+        self.handleError(error)
+    }
+//
+//    DispatchQueue.main.async {
+//        self.delegate?.cameraControllerDidStartSession(self)
+//    }
+//    DispatchQueue.main.async {
+//        self.delegate?.cameraControllerDidStopSession(self)
+//    }
 }
 
 // MARK: - AV Orientation

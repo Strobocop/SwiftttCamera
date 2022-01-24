@@ -1,11 +1,41 @@
 // Copyright © 2021 Roger Oba. All rights reserved.
 
 import Foundation
+import AVFoundation
 
 public protocol CameraDelegate : AnyObject {
+
+    /// Called when the camera controller begins setup of a session.
+    /// - Parameters:
+    ///   - cameraController: The CameraProtocol instance that began setting up a session.
+    func cameraControllerDidBeginSessionSetup(_ cameraController: CameraProtocol)
+
+    /// Called when the camera controller starts a camera session.
+    /// - Parameters:
+    ///   - cameraController: The CameraProtocol instance that started a session.
+    func cameraControllerDidStartSession(_ cameraController: CameraProtocol)
+
+    /// Called when the camera controller stops a camera session.
+    /// - Parameters:
+    ///   - cameraController: The CameraProtocol instance that stopped a session.
+    func cameraControllerDidStopSession(_ cameraController: CameraProtocol)
+
+
+    /// Called when the camera controller's session is interrupted.
+    /// - Parameters:
+    ///   - cameraController: The CameraProtocol instance that had an interrupted session.
+    ///   - reason: The reason why the session was interrupted.
+    func cameraControllerSessionWasInterrupted(_ cameraController: CameraProtocol, for reason: AVCaptureSession.InterruptionReason)
+
+    /// Called when the camera controller's session resumes from an interruption.
+    /// - Parameters:
+    ///   - cameraController: The CameraProtocol instance that that had an interrupted session.
+    func cameraControllerSessionInterruptionEnded(_ cameraController: CameraProtocol)
+
+
     /// Called when the camera controller has obtained the raw data containing the image and metadata.
     /// - Parameters:
-    ///   - cameraController: The FastttCamera instance that captured a photo.
+    ///   - cameraController: The CameraProtocol instance that captured a photo.
     ///   - rawJPEGData: The plain, raw data from the camera, ready to be written to a file if desired.
     func cameraController(_ cameraController: CameraProtocol, didFinishCapturingImageData rawJPEGData: Data)
 
@@ -42,9 +72,37 @@ public protocol CameraDelegate : AnyObject {
     ///
     /// - Parameter cameraController: The CameraProtocol instance that captured a photo.
     func userDeniedCameraPermissions(forCameraController cameraController: CameraProtocol)
+
+    /// Called when the camera controller observes an error. This is the proper place to do things like inform users of errors, trigger retry logic, or enable/disable applicable UI controls.
+    /// - Parameters:
+    ///   - cameraController: The CameraProtocol instance that observed the error.
+    ///   - didObserveError: The error observed.
+    func cameraController(_ cameraController: CameraProtocol, didObserveError error: Error)
+
 }
 
 public extension CameraDelegate {
+
+    func cameraControllerDidBeginSessionSetup(_ cameraController: CameraProtocol) {
+        // Optional protocol function
+    }
+
+    func cameraControllerDidStartSession(_ cameraController: CameraProtocol) {
+        // Optional protocol function
+    }
+
+    func cameraControllerDidStopSession(_ cameraController: CameraProtocol) {
+        // Optional protocol function
+    }
+
+    func cameraControllerSessionWasInterrupted(_ cameraController: CameraProtocol, for reason: AVCaptureSession.InterruptionReason) {
+        // Optional protocol function
+    }
+
+    func cameraControllerSessionInterruptionEnded(_ cameraController: CameraProtocol) {
+        // Optional protocol function
+    }
+
     func cameraController(_ cameraController: CameraProtocol, didFinishCapturingImageData rawJPEGData: Data) {
         // Optional protocol function
     }
@@ -63,5 +121,10 @@ public extension CameraDelegate {
 
     func userDeniedCameraPermissions(forCameraController cameraController: CameraProtocol) {
         // Optional protocol function
+    }
+
+    func cameraController(_ cameraController: CameraProtocol, didObserveError error: Error) {
+        // Optional protocol function
+        dump(error)
     }
 }
