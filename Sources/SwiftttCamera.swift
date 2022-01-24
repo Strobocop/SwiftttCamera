@@ -199,7 +199,6 @@ extension SwiftttCamera {
         photoOutput = nil
         if let videoOutput = videoOutput {
             session.removeOutput(videoOutput)
-            self.videoOutput = nil
         }
 
         removePreviewLayer()
