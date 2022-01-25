@@ -35,29 +35,23 @@ final class DeviceOrientation {
         guard let acceleration: CMAcceleration = motionManager?.accelerometerData?.acceleration else { return _orientation }
 
         if (acceleration.z < -0.75) {
-            print("faceUp")
             _orientation = .faceUp
         }
 
         if (acceleration.z > 0.75) {
-            print("faceDown")
             _orientation = .faceDown
         }
 
         if acceleration.x >= 0.75 {
-            print("landscapeRight")
             _orientation = .landscapeRight
         }
         else if acceleration.x <= -0.75 {
-            print("landscapeLeft")
             _orientation = .landscapeLeft
         }
         else if acceleration.y <= -0.75 {
-            print("portrait")
             _orientation = .portrait
         }
         else if acceleration.y >= 0.75 {
-            print("portraitUpsideDown")
             _orientation = .portraitUpsideDown
         }
         return _orientation
@@ -69,31 +63,6 @@ final class DeviceOrientation {
     /// Expect this to return true when orientation lock is off, and false when orientation lock is on.
     /// This returns true if the device's interface orientation matches the physical device orientation, and false if the interface and physical orientation are different (when orientation lock is on).
     var deviceOrientationMatchesInterfaceOrientation: Bool {
-        print("Orientation: \(orientation), Device Orientation: \(UIDevice.current.orientation)")
         return orientation == UIDevice.current.orientation
-    }
-}
-
-
-extension UIDeviceOrientation: CustomDebugStringConvertible {
-    public var debugDescription: String {
-        switch self {
-        case .portrait:
-            return "portrait"
-        case .faceUp:
-            return "faceUp"
-        case .faceDown:
-            return "faceDown"
-        case .landscapeLeft:
-            return "landscapeLeft"
-        case .landscapeRight:
-            return "landscapeRight"
-        case .portraitUpsideDown:
-            return "portraitUpsideDown"
-        case .unknown:
-            return "unknown"
-        @unknown default:
-            return "unknown"
-        }
     }
 }
