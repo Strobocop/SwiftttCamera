@@ -108,7 +108,6 @@ public class SwiftttCamera : UIViewController, CameraProtocol {
     public override func viewDidLayoutSubviews() {
         super.viewDidLayoutSubviews()
         previewLayer?.frame = view.layer.bounds
-        setPreviewVideoOrientation()
         
     }
 

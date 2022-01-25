@@ -25,33 +25,43 @@ final class DeviceOrientation {
         motionManager = nil
     }
 
+    private var _orientation: UIDeviceOrientation = UIDevice.current.orientation
+
     /// The current actual orientation of the device, based on accelerometer data if on a device, or [[UIDevice currentDevice] orientation] if on the simulator.
     var orientation: UIDeviceOrientation {
         #if TARGET_IPHONE_SIMULATOR
         return .portrait
         #else
-        guard let acceleration: CMAcceleration = motionManager?.accelerometerData?.acceleration else { return .portrait }
+        guard let acceleration: CMAcceleration = motionManager?.accelerometerData?.acceleration else { return _orientation }
+
         if (acceleration.z < -0.75) {
-            return .faceUp
+            print("faceUp")
+            _orientation = .faceUp
         }
+
         if (acceleration.z > 0.75) {
-            return .faceDown
+            print("faceDown")
+            _orientation = .faceDown
         }
 
-        let scaling: CGFloat = CGFloat(1 / abs(acceleration.x) + abs(acceleration.y))
-        let x: CGFloat = CGFloat(acceleration.x) * scaling
-        let y: CGFloat = CGFloat(acceleration.y) * scaling
+        if acceleration.x >= 0.75 {
+            print("landscapeRight")
+            _orientation = .landscapeRight
+        }
+        else if acceleration.x <= -0.75 {
+            print("landscapeLeft")
+            _orientation = .landscapeLeft
+        }
+        else if acceleration.y <= -0.75 {
+            print("portrait")
+            _orientation = .portrait
+        }
+        else if acceleration.y >= 0.75 {
+            print("portraitUpsideDown")
+            _orientation = .portraitUpsideDown
+        }
+        return _orientation
 
-        if (x < -0.5) {
-            return .landscapeLeft
-        }
-        if (x > 0.5) {
-            return .landscapeRight
-        }
-        if (y > 0.5) {
-            return .portraitUpsideDown
-        }
-        return .portrait
         #endif
     }
 
@@ -59,6 +69,31 @@ final class DeviceOrientation {
     /// Expect this to return true when orientation lock is off, and false when orientation lock is on.
     /// This returns true if the device's interface orientation matches the physical device orientation, and false if the interface and physical orientation are different (when orientation lock is on).
     var deviceOrientationMatchesInterfaceOrientation: Bool {
+        print("Orientation: \(orientation), Device Orientation: \(UIDevice.current.orientation)")
         return orientation == UIDevice.current.orientation
+    }
+}
+
+
+extension UIDeviceOrientation: CustomDebugStringConvertible {
+    public var debugDescription: String {
+        switch self {
+        case .portrait:
+            return "portrait"
+        case .faceUp:
+            return "faceUp"
+        case .faceDown:
+            return "faceDown"
+        case .landscapeLeft:
+            return "landscapeLeft"
+        case .landscapeRight:
+            return "landscapeRight"
+        case .portraitUpsideDown:
+            return "portraitUpsideDown"
+        case .unknown:
+            return "unknown"
+        @unknown default:
+            return "unknown"
+        }
     }
 }
