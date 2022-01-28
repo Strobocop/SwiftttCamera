@@ -10,16 +10,19 @@ public class SwiftttCamera : UIViewController, CameraProtocol {
     private var deviceOrientation: DeviceOrientation!
     private var focus: Focus!
     private var zoom: Zoom!
+
     private var session: AVCaptureSession!
     private var previewLayer: AVCaptureVideoPreviewLayer!
     private var photoOutput: AVCapturePhotoOutput!
+    private var videoOutput: AVCaptureVideoDataOutput?
     private var deviceAuthorized: Bool = false
     private var isCapturingImage: Bool = false
     private var photoCaptureNeedsPreviewRotation: Bool = false
     private var photoCapturePreviewOrientation: UIDeviceOrientation = .portrait
     private var cancellables = Set<AnyCancellable>()
 
-    public var videoOutput: AVCaptureVideoDataOutput?
+
+    public var videoOutputPipeline: VideoDataOutputPipeline?
     public weak var delegate: CameraDelegate?
     public weak var gestureDelegate: UIGestureRecognizerDelegate?
     public var handlesTapFocus: Bool = true
@@ -182,8 +185,8 @@ extension SwiftttCamera {
             photoOutput = AVCapturePhotoOutput()
             session.addOutputIfPossible(photoOutput)
 
-            if let videoOutput = videoOutput {
-                session.addOutputIfPossible(videoOutput)
+            if let videoOutputPipeline = videoOutputPipeline {
+                session.addOutputIfPossible(videoOutputPipeline.videoDataOutput)
             }
 
             deviceOrientation = DeviceOrientation()

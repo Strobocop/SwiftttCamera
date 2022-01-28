@@ -86,11 +86,7 @@ class DemoViewController : UIViewController {
         title = NSLocalizedString("Demo", comment: "")
         tabBarItem.image = #imageLiteral(resourceName: "aperture")
 
-        let dataOutput = AVCaptureVideoDataOutput()
-        dataOutput.setSampleBufferDelegate(self, queue: DispatchQueue(label: "visionQueue"))
-        camera.videoOutput = dataOutput
-
-        try? setupVision()
+        camera.videoOutputPipeline = try? setupVisionPipeline()
 
         swiftttAddChild(camera)
         view.addSubview(stackView)
@@ -159,17 +155,16 @@ class DemoViewController : UIViewController {
 
 import Vision
 
-extension DemoViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
+extension DemoViewController: VideoDataOutputPipelineDelegate {
 
 
-    func setupVision() throws {
-
+    func setupVisionPipeline() throws -> VideoDataOutputPipeline {
         guard let modelURL = Bundle.main.url(forResource: "ObjectDetector", withExtension: "mlmodelc") else {
             throw NSError(domain: "DemoViewController", code: -1, userInfo: [NSLocalizedDescriptionKey: "Model file is missing"])
         }
         let visionModel = try VNCoreMLModel(for: MLModel(contentsOf: modelURL))
         let objectRecognition = VNCoreMLRequest(model: visionModel, completionHandler: { (request, error) in
-            print("Recognized \(request.results?.count) objects.")
+            print("Recognized \(String(describing: request.results?.count)) objects.")
             DispatchQueue.main.async(execute: {
                 // perform all the UI updates on the main queue
                 if let results = request.results {
@@ -177,25 +172,25 @@ extension DemoViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
                 }
             })
         })
-        self.requests = [objectRecognition]
+        return VideoDataOutputPipeline(delegate: self, requests: [objectRecognition])
     }
 
 
-    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-        print("Received sample buffer of size \(sampleBuffer.totalSampleSize).")
-        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
-            return
-        }
-
-        let exifOrientation = exifOrientationFromDeviceOrientation()
-
-        let imageRequestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: exifOrientation, options: [:])
-        do {
-            try imageRequestHandler.perform(self.requests)
-        } catch {
-            print(error)
-        }
-    }
+//    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
+//        print("Received sample buffer of size \(sampleBuffer.totalSampleSize).")
+//        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+//            return
+//        }
+//
+//        let exifOrientation = exifOrientationFromDeviceOrientation()
+//
+//        let imageRequestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: exifOrientation, options: [:])
+//        do {
+//            try imageRequestHandler.perform(self.requests)
+//        } catch {
+//            print(error)
+//        }
+//    }
 
     func drawVisionRequestResults(_ results: [Any]) {
         for observation in results where observation is VNRecognizedObjectObservation {
@@ -207,26 +202,6 @@ extension DemoViewController: AVCaptureVideoDataOutputSampleBufferDelegate {
         }
 
     }
-
-    public func exifOrientationFromDeviceOrientation() -> CGImagePropertyOrientation {
-        let curDeviceOrientation = UIDevice.current.orientation
-        let exifOrientation: CGImagePropertyOrientation
-
-        switch curDeviceOrientation {
-        case UIDeviceOrientation.portraitUpsideDown:  // Device oriented vertically, home button on the top
-            exifOrientation = .left
-        case UIDeviceOrientation.landscapeLeft:       // Device oriented horizontally, home button on the right
-            exifOrientation = .upMirrored
-        case UIDeviceOrientation.landscapeRight:      // Device oriented horizontally, home button on the left
-            exifOrientation = .down
-        case UIDeviceOrientation.portrait:            // Device oriented vertically, home button on the bottom
-            exifOrientation = .up
-        default:
-            exifOrientation = .up
-        }
-        return exifOrientation
-    }
-
 }
 
 extension DemoViewController : CameraDelegate {
