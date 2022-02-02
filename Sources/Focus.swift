@@ -20,17 +20,22 @@ final class Focus {
 
     private static let focusSquareSize: CGFloat = 50
     private var view: UIView
+    private let focusView = UIView()
+    private var focusViewColor: UIColor
     private var tapGestureRecognizer: UITapGestureRecognizer?
     private var isFocusing: Bool = false
+
+
 
     // MARK: Lifecycle
     /// Initializes an instance of Focus.
     /// - Parameters:
     ///   - view: The view to use for receiving touch events.
     ///   - gestureDelegate: The delegate, if any, to use for the tap gesture recognizer.
-    init(view: UIView, gestureDelegate: UIGestureRecognizerDelegate? = nil) {
+    init(view: UIView, gestureDelegate: UIGestureRecognizerDelegate? = nil, focusViewColor: UIColor) {
         self.view = view
         self.gestureDelegate = gestureDelegate
+        self.focusViewColor = focusViewColor
         handleDetectsTapsChanged()
     }
 
@@ -70,22 +75,26 @@ final class Focus {
     func showFocusView(atPoint location: CGPoint) {
         guard !isFocusing else { return }
         isFocusing = true
-        let focusView = UIView()
-        focusView.layer.borderColor = UIColor.systemYellow.cgColor
+        focusView.layer.borderColor = focusViewColor.cgColor
         focusView.layer.borderWidth = 2
         focusView.frame = centeredRect(forSize: CGSize(width: Self.focusSquareSize * 2, height: Self.focusSquareSize * 2), atCenterPoint: location)
         focusView.alpha = 0
         view.addSubview(focusView)
         UIView.animate(withDuration: 0.3, delay: 0, options: .curveEaseIn) {
-            focusView.frame = self.centeredRect(forSize: CGSize(width: Self.focusSquareSize, height: Self.focusSquareSize), atCenterPoint: location)
-            focusView.alpha = 1
-        } completion: { [weak self] _ in
-            UIView.animate(withDuration: 0.2) {
-                focusView.alpha = 0
-            } completion: { _ in
-                focusView.removeFromSuperview()
-                self?.isFocusing = false
-            }
+            self.focusView.frame = self.centeredRect(forSize: CGSize(width: Self.focusSquareSize, height: Self.focusSquareSize), atCenterPoint: location)
+            self.focusView.alpha = 1
+        } completion: { _ in
+            self.removeFocusView()
+        }
+    }
+
+    func removeFocusView() {
+        guard isFocusing else { return }
+        UIView.animate(withDuration: 0.2) {
+            self.focusView.alpha = 0
+        } completion: { _ in
+            self.focusView.removeFromSuperview()
+            self.isFocusing = false
         }
     }
 

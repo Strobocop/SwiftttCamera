@@ -7,13 +7,14 @@ import UIKit
 /// Use to create a standard SwiftttCamera.
 /// - Note: The full interface for the SwiftttCamera can be found in CameraProtocol.
 public class SwiftttCamera : UIViewController, CameraProtocol {
-    private var deviceOrientation: DeviceOrientation!
-    private var focus: Focus!
-    private var zoom: Zoom!
+    private var deviceOrientation: DeviceOrientation?
+    private var focus: Focus?
+    private var zoom: Zoom?
 
-    private var session: AVCaptureSession!
-    private var previewLayer: AVCaptureVideoPreviewLayer!
-    private var photoOutput: AVCapturePhotoOutput!
+    private var device: AVCaptureDevice?
+    private var session: AVCaptureSession?
+    private var previewLayer: AVCaptureVideoPreviewLayer?
+    private var photoOutput: AVCapturePhotoOutput?
     private var videoOutput: AVCaptureVideoDataOutput?
     private var deviceAuthorized: Bool = false
     private var isCapturingImage: Bool = false
@@ -22,11 +23,13 @@ public class SwiftttCamera : UIViewController, CameraProtocol {
     private var cancellables = Set<AnyCancellable>()
 
 
-    public var videoOutputPipeline: VideoDataOutputPipeline?
+    public var videoOutputDelegate: VideoDataOutputDelegate?
     public weak var delegate: CameraDelegate?
     public weak var gestureDelegate: UIGestureRecognizerDelegate?
     public var handlesTapFocus: Bool = true
     public var showsFocusView: Bool = true
+    public var focusViewColor: UIColor = .systemYellow
+    public var switchesToAutofocusOnSubjectAreaChange: Bool = true
     public var handlesZoom: Bool = true
     public var showsZoomView: Bool = true
     public var cropsImageToVisibleAspectRatio: Bool = true
@@ -76,6 +79,8 @@ public class SwiftttCamera : UIViewController, CameraProtocol {
         NotificationCenter.default.addObserver(self, selector: #selector(sessionWasInterrupted), name: .AVCaptureSessionWasInterrupted, object: session)
         NotificationCenter.default.addObserver(self, selector: #selector(sessionInterruptionEnded), name: .AVCaptureSessionInterruptionEnded, object: session)
         NotificationCenter.default.addObserver(self, selector: #selector(sessionRuntimeError), name: .AVCaptureSessionRuntimeError, object: session)
+
+        NotificationCenter.default.addObserver(self, selector: #selector(subjectAreaDidChange), name: Notification.Name.AVCaptureDeviceSubjectAreaDidChange, object: nil)
     }
 
 
@@ -88,12 +93,12 @@ public class SwiftttCamera : UIViewController, CameraProtocol {
         super.viewDidLoad()
         insertPreviewLayer()
         let viewForGestures: UIView = gestureView ?? view
-        focus = Focus(view: viewForGestures, gestureDelegate: gestureDelegate)
-        focus.delegate = self
-        focus.detectsTaps = handlesTapFocus
+        focus = Focus(view: viewForGestures, gestureDelegate: gestureDelegate, focusViewColor: focusViewColor)
+        focus?.delegate = self
+        focus?.detectsTaps = handlesTapFocus
         zoom = Zoom(view: viewForGestures, gestureDelegate: gestureDelegate)
-        zoom.delegate = self
-        zoom.detectsPinch = handlesZoom
+        zoom?.delegate = self
+        zoom?.detectsPinch = handlesZoom
     }
 
     public override func viewWillAppear(_ animated: Bool) {
@@ -165,8 +170,9 @@ extension SwiftttCamera {
     private func setupCaptureSession() {
         guard session == nil else { return }
         session = AVCaptureSession()
-        session.setSessionPresetIfPossible(.photo)
-        let device: AVCaptureDevice? = AVCaptureDevice.captureDevice(from: cameraDevice) ?? AVCaptureDevice.default(for: .video) // It's nil only in Simulator
+        session?.setSessionPresetIfPossible(.photo)
+
+        device = AVCaptureDevice.captureDevice(from: cameraDevice) ?? AVCaptureDevice.default(for: .video) // It's nil only in Simulator
         do {
             try device?.lockForConfiguration()
             device?.setFocusModeIfSupported(.continuousAutoFocus)
@@ -174,19 +180,23 @@ extension SwiftttCamera {
             device?.unlockForConfiguration()
             #if !targetEnvironment(simulator)
             let deviceInput: AVCaptureDeviceInput = try AVCaptureDeviceInput(device: device!)
-            session.addInputIfPossible(deviceInput)
+            session?.addInputIfPossible(deviceInput)
             switch device!.position {
             case .back: cameraDevice = .rear
             case .front: cameraDevice = .front
             default: break
             }
             #endif
+            let photoOutput = AVCapturePhotoOutput()
+            self.photoOutput = photoOutput
+            session?.addOutputIfPossible(photoOutput)
 
-            photoOutput = AVCapturePhotoOutput()
-            session.addOutputIfPossible(photoOutput)
-
-            if let videoOutputPipeline = videoOutputPipeline {
-                session.addOutputIfPossible(videoOutputPipeline.videoDataOutput)
+            if let videoOutputDelegate = videoOutputDelegate {
+                let videoOutput = AVCaptureVideoDataOutput()
+                videoOutput.alwaysDiscardsLateVideoFrames = true
+                videoOutput.setSampleBufferDelegate(videoOutputDelegate, queue: DispatchQueue(label: "swiftttcamera.videoOutputDelegate"))
+                session?.addOutputIfPossible(videoOutput)
+                self.videoOutput = videoOutput
             }
 
             deviceOrientation = DeviceOrientation()
@@ -206,13 +216,16 @@ extension SwiftttCamera {
         guard session != nil else { return }
         deviceOrientation = nil
         stopRunning()
-        for input in session.inputs {
-            session.removeInput(input)
+        for input in session?.inputs ?? [] {
+            session?.removeInput(input)
         }
-        session.removeOutput(photoOutput)
-        photoOutput = nil
+        if let photoOutput = photoOutput {
+            session?.removeOutput(photoOutput)
+            self.photoOutput = nil
+        }
+
         if let videoOutput = videoOutput {
-            session.removeOutput(videoOutput)
+            session?.removeOutput(videoOutput)
         }
 
         removePreviewLayer()
@@ -220,14 +233,16 @@ extension SwiftttCamera {
     }
 
     private func insertPreviewLayer() {
-        guard deviceAuthorized, session != nil else { return }
+        guard deviceAuthorized, let session = session else { return }
         if previewLayer?.superlayer === view.layer && previewLayer?.session === session {
             return
         }
         removePreviewLayer()
         let rootLayer: CALayer = view.layer
         rootLayer.masksToBounds = true
-        previewLayer = AVCaptureVideoPreviewLayer(session: session)
+
+        let previewLayer = AVCaptureVideoPreviewLayer(session: session)
+        self.previewLayer = previewLayer
         previewLayer.videoGravity = .resizeAspectFill
 
         previewLayer.frame = rootLayer.bounds
@@ -269,7 +284,7 @@ extension SwiftttCamera {
     }
 
     private func handleCameraDeviceChanged(oldValue: CameraDevice, newValue: CameraDevice) {
-        guard let device: AVCaptureDevice = AVCaptureDevice.captureDevice(from: cameraDevice) else { return }
+        guard let device: AVCaptureDevice = AVCaptureDevice.captureDevice(from: cameraDevice), let session = session else { return }
         if oldValue != newValue {
             do {
                 let oldInput: AVCaptureInput? = session.inputs.last
@@ -305,9 +320,9 @@ extension SwiftttCamera {
     }
 
     public func takePicture() {
-        guard deviceAuthorized, !isCapturingImage else { return }
+        guard deviceAuthorized, !isCapturingImage, let photoOutput = photoOutput else { return }
         isCapturingImage = true
-        photoCaptureNeedsPreviewRotation = !deviceOrientation.deviceOrientationMatchesInterfaceOrientation
+        photoCaptureNeedsPreviewRotation = deviceOrientation?.deviceOrientationMatchesInterfaceOrientation == false
         #if targetEnvironment(simulator)
         insertPreviewLayer()
         let fakeImage = UIImage.fakeTestImage()
@@ -341,6 +356,8 @@ extension SwiftttCamera {
     }
 
     private func process(cameraPhoto image: UIImage, needsPreviewRotation: Bool, previewOrientation: UIDeviceOrientation) {
+        guard let previewLayer = previewLayer else { return }
+
         let cropRect: CGRect? = cropsImageToVisibleAspectRatio ? image.cropRect(fromPreviewLayer: previewLayer) : nil
         self.process(image: image, withCropRect: cropRect, maxDimension: maxScaledDimension, fromCamera: true, needsPreviewRotation: needsPreviewRotation || !interfaceRotatesWithOrientation, previewOrientation: previewOrientation)
     }
@@ -483,13 +500,15 @@ extension SwiftttCamera {
         guard let error = notification.userInfo?[AVCaptureSessionErrorKey] as? AVError else { return }
         self.handleError(error)
     }
-//
-//    DispatchQueue.main.async {
-//        self.delegate?.cameraControllerDidStartSession(self)
-//    }
-//    DispatchQueue.main.async {
-//        self.delegate?.cameraControllerDidStopSession(self)
-//    }
+
+    /// Called when the AVCaptureDevice detects that the subject area has changed significantly. Logical point to typically reset the focus to autofocus, as manual focus is likely no longer applicable.
+    @objc
+    private func subjectAreaDidChange() {
+        guard switchesToAutofocusOnSubjectAreaChange else { return }
+        /// Reset the focus and exposure back to automatic
+        self.device?.setFocusModeIfSupported(.continuousAutoFocus)
+        self.focus?.removeFocusView()
+    }
 }
 
 // MARK: - AV Orientation
@@ -501,7 +520,7 @@ extension SwiftttCamera {
     }
 
     private func currentCaptureVideoOrientationForDevice() -> AVCaptureVideoOrientation {
-        let actualOrientation: UIDeviceOrientation = deviceOrientation.orientation
+        let actualOrientation: UIDeviceOrientation = deviceOrientation?.orientation ?? .unknown
         switch actualOrientation {
         case .faceDown, .faceUp, .unknown: return currentPreviewVideoOrientationForDevice()
         default: return Self.videoOrientation(forDeviceOrientation: actualOrientation)
@@ -542,15 +561,15 @@ extension SwiftttCamera {
 // MARK: - CameraDevice
 extension SwiftttCamera {
     private func currentCameraDevice() -> AVCaptureDevice? {
-        return (session.inputs.last as? AVCaptureDeviceInput)?.device
+        return (session?.inputs.last as? AVCaptureDeviceInput)?.device
     }
 
     private func currentCaptureConnection() -> AVCaptureConnection? {
-        return photoOutput.connections.first { $0.inputPorts.contains { $0.mediaType == .video } }
+        return photoOutput?.connections.first { $0.inputPorts.contains { $0.mediaType == .video } }
     }
 
     private func focusPointOfInterest(forTouchPoint touchPoint: CGPoint) -> CGPoint {
-        return previewLayer.captureDevicePointConverted(fromLayerPoint: touchPoint)
+        return previewLayer?.captureDevicePointConverted(fromLayerPoint: touchPoint) ?? .zero
     }
 
     private func focus(atPointOfInterest pointOfInterest: CGPoint) -> Bool {

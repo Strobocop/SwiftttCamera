@@ -86,7 +86,7 @@ class DemoViewController : UIViewController {
         title = NSLocalizedString("Demo", comment: "")
         tabBarItem.image = #imageLiteral(resourceName: "aperture")
 
-        camera.videoOutputPipeline = try? setupVisionPipeline()
+        camera.videoOutputDelegate = try? setupVisionPipeline()
 
         swiftttAddChild(camera)
         view.addSubview(stackView)
@@ -116,6 +116,8 @@ class DemoViewController : UIViewController {
             shutterButton.widthAnchor.constraint(equalToConstant: 88),
             shutterButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
         ])
+
+
     }
 
     // MARK: - Interactions
@@ -149,48 +151,34 @@ class DemoViewController : UIViewController {
         }
     }
 
-    // Vision parts
-    private var requests = [VNRequest]()
+    
 }
 
 import Vision
 
-extension DemoViewController: VideoDataOutputPipelineDelegate {
+extension DemoViewController: VisionRequestPipelineDelegate {
 
-
-    func setupVisionPipeline() throws -> VideoDataOutputPipeline {
-        guard let modelURL = Bundle.main.url(forResource: "ObjectDetector", withExtension: "mlmodelc") else {
-            throw NSError(domain: "DemoViewController", code: -1, userInfo: [NSLocalizedDescriptionKey: "Model file is missing"])
-        }
-        let visionModel = try VNCoreMLModel(for: MLModel(contentsOf: modelURL))
-        let objectRecognition = VNCoreMLRequest(model: visionModel, completionHandler: { (request, error) in
-            print("Recognized \(String(describing: request.results?.count)) objects.")
-            DispatchQueue.main.async(execute: {
-                // perform all the UI updates on the main queue
-                if let results = request.results {
-                    self.drawVisionRequestResults(results)
-                }
+    func setupVisionPipeline() throws -> VisionRequestPipeline {
+        return VisionRequestPipeline(delegate: self) { sampleBuffer, connection in
+            guard let modelURL = Bundle.main.url(forResource: "ObjectDetector", withExtension: "mlmodelc") else {
+                throw NSError(domain: "DemoViewController", code: -1, userInfo: [NSLocalizedDescriptionKey: "Model file is missing"])
+            }
+            let visionModel = try VNCoreMLModel(for: MLModel(contentsOf: modelURL))
+            let objectRecognition = VNCoreMLRequest(model: visionModel, completionHandler: { [weak self] (request, error) in
+                guard let self = self else { return }
+//                print("Recognized \(String(describing: request.results?.count)) objects.")
+                DispatchQueue.main.async(execute: {
+                    // perform all the UI updates on the main queue
+                    if let results = request.results {
+                        self.drawVisionRequestResults(results)
+                    }
+                })
             })
-        })
-        return VideoDataOutputPipeline(delegate: self, requests: [objectRecognition])
+
+            return [objectRecognition]
+        }
+
     }
-
-
-//    func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-//        print("Received sample buffer of size \(sampleBuffer.totalSampleSize).")
-//        guard let pixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
-//            return
-//        }
-//
-//        let exifOrientation = exifOrientationFromDeviceOrientation()
-//
-//        let imageRequestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: exifOrientation, options: [:])
-//        do {
-//            try imageRequestHandler.perform(self.requests)
-//        } catch {
-//            print(error)
-//        }
-//    }
 
     func drawVisionRequestResults(_ results: [Any]) {
         for observation in results where observation is VNRecognizedObjectObservation {
@@ -202,6 +190,9 @@ extension DemoViewController: VideoDataOutputPipelineDelegate {
         }
 
     }
+
+    
+
 }
 
 extension DemoViewController : CameraDelegate {
