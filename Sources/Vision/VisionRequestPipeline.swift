@@ -94,7 +94,6 @@ open class VisionRequestPipeline: NSObject, VideoDataOutputDelegate {
         delegate?.captureOutput?(output, didDrop: sampleBuffer, from: connection)
     }
     public func captureOutput(_ output: AVCaptureOutput, didOutput sampleBuffer: CMSampleBuffer, from connection: AVCaptureConnection) {
-//        print("Received sample buffer of size \(sampleBuffer.totalSampleSize).")
         delegate?.captureOutput?(output, didOutput: sampleBuffer, from: connection)
 
         if let builder = requestsBuilder, self.requests.isEmpty {
@@ -110,16 +109,16 @@ open class VisionRequestPipeline: NSObject, VideoDataOutputDelegate {
             return
         }
 
-        let exifOrientation = CGImagePropertyOrientation(deviceOrientation: UIDevice.current.orientation)
-
-        for request in requests {
+        for request in self.requests {
             guard request.active else { continue }
-            let imageRequestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: exifOrientation, options: request.options)
+            DispatchQueue.global(qos: .background).async {
+            let imageRequestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: request.options)
 
-            do {
-                try imageRequestHandler.perform([request.request])
-            } catch {
-                vision(request: request, didFailWith: error)
+                do {
+                    try imageRequestHandler.perform([request.request])
+                } catch {
+                    self.vision(request: request, didFailWith: error)
+                }
             }
         }
 
