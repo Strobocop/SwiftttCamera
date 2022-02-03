@@ -113,6 +113,7 @@ open class VisionRequestPipeline: NSObject, VideoDataOutputDelegate {
         let exifOrientation = CGImagePropertyOrientation(deviceOrientation: UIDevice.current.orientation)
 
         for request in requests {
+            guard request.active else { continue }
             let imageRequestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, orientation: exifOrientation, options: request.options)
 
             do {
