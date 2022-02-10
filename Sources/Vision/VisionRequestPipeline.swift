@@ -76,7 +76,7 @@ open class VisionRequestPipeline: NSObject, VideoDataOutputDelegate {
     
     public var requests: [VisionRequest]
     weak var delegate: VisionRequestPipelineDelegate?
-
+    let imageRequestHandler = VNSequenceRequestHandler()
     private var requestsBuilder: VisionRequestsBuilder?
 
     public init(delegate: VisionRequestPipelineDelegate? = nil, requests: [VisionRequestProtocol]) {
@@ -111,15 +111,16 @@ open class VisionRequestPipeline: NSObject, VideoDataOutputDelegate {
 
         for request in self.requests {
             guard request.active else { continue }
-            DispatchQueue.global(qos: .background).async {
-            let imageRequestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: request.options)
+//            DispatchQueue.global(qos: .background).async {
+
+//            let imageRequestHandler = VNImageRequestHandler(cvPixelBuffer: pixelBuffer, options: request.options)
 
                 do {
-                    try imageRequestHandler.perform([request.request])
+                    try self.imageRequestHandler.perform([request.request], on: pixelBuffer)
                 } catch {
                     self.vision(request: request, didFailWith: error)
                 }
-            }
+//            }
         }
 
     }
