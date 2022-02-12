@@ -92,6 +92,7 @@ class DemoViewController : UIViewController {
         view.addSubview(stackView)
         view.addSubview(visionLabel)
         view.addSubview(shutterButton)
+
         NSLayoutConstraint.activate([
             // Camera view
             camera.view.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -117,7 +118,7 @@ class DemoViewController : UIViewController {
             shutterButton.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor, constant: -16),
         ])
 
-
+        documentObservationHandler.layoutTrackerView(onTopOf: self.camera.view)
     }
 
     // MARK: - Interactions
@@ -151,7 +152,16 @@ class DemoViewController : UIViewController {
         }
     }
 
-    
+    lazy var documentObservationHandler: DocumentObservationHandler = {
+        TrackView.fillColor = UIColor.blue.withAlphaComponent(0.4)
+        TrackView.lineColor = UIColor.blue
+        return DocumentObservationHandler(containerView: self.camera.view, previewLayer: self.camera.previewLayer)
+    }()
+
+    open override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        documentObservationHandler.reset()
+    }
 }
 
 import Vision
@@ -167,15 +177,44 @@ extension DemoViewController: VisionRequestPipelineDelegate {
             let objectRecognition = VNCoreMLRequest(model: visionModel, completionHandler: { [weak self] (request, error) in
                 guard let self = self else { return }
 //                print("Recognized \(String(describing: request.results?.count)) objects.")
-                DispatchQueue.main.async(execute: {
+//                DispatchQueue.main.async(execute: {
                     // perform all the UI updates on the main queue
-                    if let results = request.results {
-                        self.drawVisionRequestResults(results)
-                    }
-                })
+//                    if let results = request.results {
+//                        self.drawVisionRequestResults(results)
+//                    }
+//                })
             })
 
-            return [objectRecognition]
+            guard let pixelBuffer: CVPixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
+                return []
+            }
+            let rectangleDetection = VNDetectRectanglesRequest { request, error in
+                guard let observations = request.results as? [VNRectangleObservation] else { return }
+                let sorted = observations.sorted { $0.confidence > $1.confidence }
+                DispatchQueue.main.async(execute: {
+                    if let observation = sorted.first {
+                        let result = QuadObservation(quad: Quad(obvservation: observation), buffer: pixelBuffer)
+                        self.visionLabel.text = result.quad?.points.description
+                        self.documentObservationHandler.process(observation: result)
+//                        self.documentObservationHandler.trackView.backgroundColor = .red
+
+                    } else {
+//                        let result = QuadObservation(quad: nil, buffer: pixelBuffer)
+//                        self.visionLabel.text = result.quad?.points.description
+//                        self.documentObservationHandler.process(observation: result)
+                    }
+                })
+
+            }
+            rectangleDetection.minimumConfidence = 0.5
+            rectangleDetection.maximumObservations = 4
+            rectangleDetection.minimumSize = 0.2
+            rectangleDetection.minimumAspectRatio = 0.2
+            rectangleDetection.maximumAspectRatio = 1
+            rectangleDetection.quadratureTolerance = 45
+            rectangleDetection.preferBackgroundProcessing = true
+
+            return [objectRecognition, rectangleDetection]
         }
 
     }
@@ -197,32 +236,36 @@ extension DemoViewController: VisionRequestPipelineDelegate {
 
 extension DemoViewController : CameraDelegate {
     func cameraController(_ cameraController: CameraProtocol, didFinishCapturingImage capturedImage: CapturedImage) {
-        let flashView: UIView = UIView()
-        flashView.backgroundColor = .lightGray
-        flashView.alpha = 0
-        view.addSubview(flashView)
-        NSLayoutConstraint.activate([
-            flashView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
-            flashView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
-            flashView.topAnchor.constraint(equalTo: view.topAnchor),
-            flashView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-        ])
-        UIView.animate(withDuration: 0.15, delay: 0, options: .curveEaseIn) {
-            flashView.alpha = 1
-        } completion: { [weak self] _ in
-            let confirmationVC = ConfirmationViewController(capturedImage: capturedImage)
-            self?.confirmationVC = confirmationVC
-            self?.present(UINavigationController(rootViewController: confirmationVC), animated: true)
-            UIView.animate(withDuration: 0.15, delay: 0.05, options: .curveEaseOut) {
-                flashView.alpha = 0
-            } completion: { _ in
-                flashView.removeFromSuperview()
-            }
-        }
+//        let flashView: UIView = UIView()
+//        flashView.backgroundColor = .lightGray
+//        flashView.alpha = 0
+//        view.addSubview(flashView)
+//        NSLayoutConstraint.activate([
+//            flashView.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+//            flashView.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+//            flashView.topAnchor.constraint(equalTo: view.topAnchor),
+//            flashView.bottomAnchor.constraint(equalTo: view.bottomAnchor),
+//        ])
+//        UIView.animate(withDuration: 0.15, delay: 0, options: .curveEaseIn) {
+//            flashView.alpha = 1
+//        } completion: { [weak self] _ in
+//            let confirmationVC = ConfirmationViewController(capturedImage: capturedImage)
+//            self?.confirmationVC = confirmationVC
+//            self?.present(UINavigationController(rootViewController: confirmationVC), animated: true)
+//            UIView.animate(withDuration: 0.15, delay: 0.05, options: .curveEaseOut) {
+//                flashView.alpha = 0
+//            } completion: { _ in
+//                flashView.removeFromSuperview()
+//            }
+//        }
+        let cropper = DocumentCropViewController2(image: capturedImage.fullImage)
+        self.present(UINavigationController(rootViewController: cropper), animated: true, completion: nil)
     }
 
     func cameraController(_ cameraController: CameraProtocol, didFinishNormalizingCapturedImage capturedImage: CapturedImage) {
         print("Image has been normalized and is ready")
-        confirmationVC?.markImageReady()
+//        confirmationVC?.markImageReady()
+
+
     }
 }
