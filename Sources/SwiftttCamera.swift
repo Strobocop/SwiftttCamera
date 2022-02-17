@@ -23,7 +23,7 @@ public class SwiftttCamera : UIViewController, CameraProtocol {
     private var cancellables = Set<AnyCancellable>()
 
 
-    public var videoOutputDelegate: VideoDataOutputDelegate?
+    public weak var videoOutputDelegate: VideoDataOutputDelegate?
     public weak var delegate: CameraDelegate?
     public weak var gestureDelegate: UIGestureRecognizerDelegate?
     public var handlesTapFocus: Bool = true
@@ -40,6 +40,7 @@ public class SwiftttCamera : UIViewController, CameraProtocol {
     public var returnsRotatedPreview: Bool = true
     public var interfaceRotatesWithOrientation: Bool = true
     public var fixedInterfaceOrientation: UIDeviceOrientation = .portrait
+    public var pausesCameraPreviewOnPhotoCapture: Bool = true
     public var cameraDevice: CameraDevice = .rear { didSet { handleCameraDeviceChanged(oldValue: oldValue, newValue: cameraDevice) } }
     public var cameraFlashMode: CameraFlashMode = .off
     public var cameraTorchMode: CameraTorchMode = .off { didSet { handleCameraTorchModeChanged() } }
@@ -315,12 +316,23 @@ extension SwiftttCamera {
 
 // MARK: - Photo Capturing
 extension SwiftttCamera {
+
+    public func pausePreview() {
+        previewLayer?.connection?.isEnabled = false
+    }
+
+    public func resumePreview() {
+        previewLayer?.connection?.isEnabled = true
+    }
     public var isReadyToCapturePhoto: Bool {
         return !isCapturingImage
     }
 
     public func takePicture() {
         guard deviceAuthorized, !isCapturingImage, let photoOutput = photoOutput else { return }
+        if pausesCameraPreviewOnPhotoCapture {
+            pausePreview()
+        }
         isCapturingImage = true
         photoCaptureNeedsPreviewRotation = deviceOrientation?.deviceOrientationMatchesInterfaceOrientation == false
         #if targetEnvironment(simulator)
