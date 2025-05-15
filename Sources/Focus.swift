@@ -32,7 +32,7 @@ final class Focus {
     /// - Parameters:
     ///   - view: The view to use for receiving touch events.
     ///   - gestureDelegate: The delegate, if any, to use for the tap gesture recognizer.
-    init(view: UIView, gestureDelegate: UIGestureRecognizerDelegate? = nil, focusViewColor: UIColor) {
+    init(view: UIView, gestureDelegate: UIGestureRecognizerDelegate? = nil, focusViewColor: UIColor = .systemYellow) {
         self.view = view
         self.gestureDelegate = gestureDelegate
         self.focusViewColor = focusViewColor

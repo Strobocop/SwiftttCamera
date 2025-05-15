@@ -166,73 +166,7 @@ class DemoViewController : UIViewController {
 
 import Vision
 
-extension DemoViewController: VisionRequestPipelineDelegate {
 
-    func setupVisionPipeline() throws -> VisionRequestPipeline {
-        return VisionRequestPipeline(delegate: self) { sampleBuffer, connection in
-            guard let modelURL = Bundle.main.url(forResource: "ObjectDetector", withExtension: "mlmodelc") else {
-                throw NSError(domain: "DemoViewController", code: -1, userInfo: [NSLocalizedDescriptionKey: "Model file is missing"])
-            }
-            let visionModel = try VNCoreMLModel(for: MLModel(contentsOf: modelURL))
-            let objectRecognition = VNCoreMLRequest(model: visionModel, completionHandler: { [weak self] (request, error) in
-                guard let self = self else { return }
-//                print("Recognized \(String(describing: request.results?.count)) objects.")
-//                DispatchQueue.main.async(execute: {
-                    // perform all the UI updates on the main queue
-//                    if let results = request.results {
-//                        self.drawVisionRequestResults(results)
-//                    }
-//                })
-            })
-
-            guard let pixelBuffer: CVPixelBuffer = CMSampleBufferGetImageBuffer(sampleBuffer) else {
-                return []
-            }
-            let rectangleDetection = VNDetectRectanglesRequest { request, error in
-                guard let observations = request.results as? [VNRectangleObservation] else { return }
-                let sorted = observations.sorted { $0.confidence > $1.confidence }
-                DispatchQueue.main.async(execute: {
-                    if let observation = sorted.first {
-                        let result = QuadObservation(quad: Quad(obvservation: observation), buffer: pixelBuffer)
-                        self.visionLabel.text = result.quad?.points.description
-                        self.documentObservationHandler.process(observation: result)
-//                        self.documentObservationHandler.trackView.backgroundColor = .red
-
-                    } else {
-//                        let result = QuadObservation(quad: nil, buffer: pixelBuffer)
-//                        self.visionLabel.text = result.quad?.points.description
-//                        self.documentObservationHandler.process(observation: result)
-                    }
-                })
-
-            }
-            rectangleDetection.minimumConfidence = 0.5
-            rectangleDetection.maximumObservations = 4
-            rectangleDetection.minimumSize = 0.2
-            rectangleDetection.minimumAspectRatio = 0.2
-            rectangleDetection.maximumAspectRatio = 1
-            rectangleDetection.quadratureTolerance = 45
-            rectangleDetection.preferBackgroundProcessing = true
-
-            return [objectRecognition, rectangleDetection]
-        }
-
-    }
-
-    func drawVisionRequestResults(_ results: [Any]) {
-        for observation in results where observation is VNRecognizedObjectObservation {
-            guard let objectObservation = observation as? VNRecognizedObjectObservation, let topLabelObservation = objectObservation.labels.first else {
-                self.visionLabel.text = "Searching"
-                continue
-            }
-            self.visionLabel.text = "\(topLabelObservation.identifier) (\(topLabelObservation.confidence))"
-        }
-
-    }
-
-    
-
-}
 
 extension DemoViewController : CameraDelegate {
     func cameraController(_ cameraController: CameraProtocol, didFinishCapturingImage capturedImage: CapturedImage) {
