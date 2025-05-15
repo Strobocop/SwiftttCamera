@@ -7,7 +7,7 @@ import UIKit
 /// Use to create a standard SwiftttCamera.
 /// - Note: The full interface for the SwiftttCamera can be found in CameraProtocol.
 public class SwiftttCamera : UIViewController, CameraProtocol {
-    private var deviceOrientation: DeviceOrientation?
+    
     private var focus: Focus?
     private var zoom: Zoom?
 
@@ -22,7 +22,7 @@ public class SwiftttCamera : UIViewController, CameraProtocol {
     private var photoCapturePreviewOrientation: UIDeviceOrientation = .portrait
     private var cancellables = Set<AnyCancellable>()
 
-
+    public var deviceOrientation: DeviceOrientation?
     public weak var videoOutputDelegate: VideoDataOutputDelegate?
     public weak var delegate: CameraDelegate?
     public weak var gestureDelegate: UIGestureRecognizerDelegate?

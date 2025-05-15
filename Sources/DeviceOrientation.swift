@@ -28,7 +28,7 @@ public final class DeviceOrientation {
     }
 
 
-    init() {
+    public init() {
         #if !TARGET_IPHONE_SIMULATOR
         motionManager?.startAccelerometerUpdates(to: .main) { [weak self] accelerometerData, error in
             guard let self, let acceleration = accelerometerData?.acceleration else { return }
