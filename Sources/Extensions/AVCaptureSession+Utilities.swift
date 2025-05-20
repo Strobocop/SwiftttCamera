@@ -1,4 +1,4 @@
-// Copyright © 2021 Roger Oba. All rights reserved.
+// Copyright 2021 Roger Oba. All rights reserved.
 
 import AVFoundation
 import Foundation
@@ -22,15 +22,21 @@ public extension AVCaptureSession {
         sessionPreset = preset
     }
 
+    private static let sessionQueue = DispatchQueue(label: "com.swiftttcamera.session")
+
     /// Starts running the session, if it's not running already.
     func startRunningIfNeeded() {
         guard !isRunning else { return }
-        startRunning()
+        Self.sessionQueue.async {
+            self.startRunning()
+        }
     }
 
     /// Stops running the session, if it's running.
     func stopRunningIfNeeded() {
         guard isRunning else { return }
-        stopRunning()
+        Self.sessionQueue.async {
+            self.stopRunning()
+        }
     }
 }
