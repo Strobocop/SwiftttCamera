@@ -22,7 +22,7 @@ public extension AVCaptureSession {
         sessionPreset = preset
     }
 
-    private static let sessionQueue = DispatchQueue(label: "com.swiftttcamera.session")
+    private static let sessionQueue = DispatchQueue(label: "com.swiftttcamera.session", qos: .background)
 
     /// Starts running the session, if it's not running already.
     func startRunningIfNeeded() {
