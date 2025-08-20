@@ -204,7 +204,7 @@ extension SwiftttCamera {
             deviceOrientation = DeviceOrientation()
             Task {
                 do {
-                    try await Wait.until(predicate: self.isCurrentlyVisible, throwingOnTimeout: SwiftttCameraError.cameraSessionTimedOutWaitingForViewToAppear)
+                    try await Wait.until(predicate: self.isCurrentlyVisibleOnMain, throwingOnTimeout: SwiftttCameraError.cameraSessionTimedOutWaitingForViewToAppear)
                     startRunning()
                     resetZoom()
                 }
@@ -599,6 +599,12 @@ extension SwiftttCamera {
             zoom?.maxScale = videoMaxZoomFactor
         }
         maxZoomFactor = zoom?.maxScale ?? maxZoomFactor
+    }
+    
+    private var isCurrentlyVisibleOnMain: Bool {
+        DispatchQueue.main.sync {
+            return isViewLoaded && view.window != nil
+        }
     }
 }
 
