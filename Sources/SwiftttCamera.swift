@@ -58,7 +58,7 @@ public class SwiftttCamera : UIViewController, CameraProtocol {
     }
 
     private func commonInit() {
-        setUpCaptureSession()
+        authorizeAndSetUpCameraSession()
         setUpObservers()
     }
 
@@ -105,8 +105,6 @@ public class SwiftttCamera : UIViewController, CameraProtocol {
     public override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         startRunning()
-        insertPreviewLayer()
-        setPreviewVideoOrientation()
     }
 
     public override func viewDidDisappear(_ animated: Bool) {
@@ -134,13 +132,16 @@ public class SwiftttCamera : UIViewController, CameraProtocol {
 extension SwiftttCamera {
     public func startRunning() {
         session?.startRunningIfNeeded()
+        insertPreviewLayer()
+        setPreviewVideoOrientation()
+        
     }
 
     public func stopRunning() {
         session?.stopRunningIfNeeded()
     }
 
-    private func setUpCaptureSession() {
+    private func authorizeAndSetUpCameraSession() {
         guard session == nil else { return }
         DispatchQueue.main.async {
             self.delegate?.cameraControllerDidBeginSessionSetup(self)
@@ -162,13 +163,13 @@ extension SwiftttCamera {
 
     private func handleDeviceAuthorization(_ authorized: Bool) {
         if authorized {
-            setupCaptureSession()
+            beginCameraSession()
         } else {
             delegate?.userDeniedCameraPermissions(forCameraController: self)
         }
     }
 
-    private func setupCaptureSession() {
+    private func beginCameraSession() {
         guard session == nil else { return }
         session = AVCaptureSession()
         session?.setSessionPresetIfPossible(.photo)
@@ -201,17 +202,23 @@ extension SwiftttCamera {
             }
 
             deviceOrientation = DeviceOrientation()
-            if isViewLoaded && view.window != nil {
-                startRunning()
-                insertPreviewLayer()
-                setPreviewVideoOrientation()
-                resetZoom()
+            Task {
+                do {
+                    try await Wait.until(predicate: self.isCurrentlyVisible, throwingOnTimeout: SwiftttCameraError.cameraSessionTimedOutWaitingForViewToAppear)
+                    startRunning()
+                    resetZoom()
+                }
+                catch {
+                    handleError(error)
+                }
             }
+            
         } catch {
             handleError(error)
         }
     }
 
+    
 
     private func teardownCaptureSession() {
         guard session != nil else { return }
@@ -444,15 +451,13 @@ extension SwiftttCamera {
 extension SwiftttCamera {
     @objc
     private func applicationWillEnterForeground(_ notification: Notification) {
-        setUpCaptureSession()
+        authorizeAndSetUpCameraSession()
     }
 
     @objc
     private func applicationDidBecomeActive(_ notification: Notification) {
-        guard isViewLoaded, view.window != nil else { return }
+        guard isCurrentlyVisible else { return }
         startRunning()
-        insertPreviewLayer()
-        setPreviewVideoOrientation()
     }
 
     @objc
@@ -622,5 +627,40 @@ extension SwiftttCamera : AVCapturePhotoCaptureDelegate {
                 self?.process(cameraPhoto: image, needsPreviewRotation: photoCaptureNeedsPreviewRotation, previewOrientation: photoCapturePreviewOrientation)
             }
         }
+    }
+}
+
+
+/// Utility class for waiting operations
+private class Wait {
+    /// Waits until the predicate returns true or times out
+    /// - Parameters:
+    ///   - predicate: A closure that returns a boolean value
+    ///   - interval: How frequently to check the predicate (default: 0.1 seconds)
+    ///   - timeout: Maximum time to wait (default: 10 seconds)
+    /// - Throws: TimeoutError if the predicate doesn't become true within the timeout
+    public static func until(
+        predicate: @escaping @autoclosure () -> Bool,
+        interval: TimeInterval = 0.1,
+        timeout: TimeInterval = 10.0,
+        throwingOnTimeout error: Error
+    ) async throws {
+        let start = CFAbsoluteTimeGetCurrent()
+        while !predicate() {
+            // Check if we've exceeded the timeout
+            if CFAbsoluteTimeGetCurrent() - start > timeout {
+                throw error
+            }
+            
+            // Wait for the specified interval before checking again
+            try await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
+        }
+    }
+}
+
+
+fileprivate extension UIViewController {
+    var isCurrentlyVisible: Bool{
+        return isViewLoaded && view.window != nil
     }
 }
