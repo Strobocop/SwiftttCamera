@@ -628,7 +628,7 @@ extension SwiftttCamera : AVCapturePhotoCaptureDelegate {
 
 fileprivate extension UIViewController {
     var isCurrentlyVisible: Bool {
-        DispatchQueue.main.sync {
+        DispatchQueue.main.async {
             return isViewLoaded && view.window != nil
         }
     }
