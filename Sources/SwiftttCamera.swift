@@ -202,9 +202,11 @@ extension SwiftttCamera {
             }
 
             deviceOrientation = DeviceOrientation()
-            if isCurrentlyVisible {
-                startRunning()
-                resetZoom()
+            DispatchQueue.main.async {
+                if self.isCurrentlyVisible {
+                    self.startRunning()
+                    self.resetZoom()
+                }
             }
             
         } catch {
@@ -450,8 +452,10 @@ extension SwiftttCamera {
 
     @objc
     private func applicationDidBecomeActive(_ notification: Notification) {
-        guard isCurrentlyVisible else { return }
-        startRunning()
+        DispatchQueue.main.async {
+            guard self.isCurrentlyVisible else { return }
+            self.startRunning()
+        }
     }
 
     @objc
@@ -628,9 +632,7 @@ extension SwiftttCamera : AVCapturePhotoCaptureDelegate {
 
 fileprivate extension UIViewController {
     var isCurrentlyVisible: Bool {
-        DispatchQueue.main.async {
-            return isViewLoaded && view.window != nil
-        }
+        isViewLoaded && view.window != nil
     }
 
 }
