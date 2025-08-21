@@ -202,15 +202,9 @@ extension SwiftttCamera {
             }
 
             deviceOrientation = DeviceOrientation()
-            Task {
-                do {
-                    try await Wait.until(predicate: self.isCurrentlyVisibleOnMain, throwingOnTimeout: SwiftttCameraError.cameraSessionTimedOutWaitingForViewToAppear)
-                    startRunning()
-                    resetZoom()
-                }
-                catch {
-                    handleError(error)
-                }
+            if isCurrentlyVisible {
+                startRunning()
+                resetZoom()
             }
             
         } catch {
@@ -601,11 +595,6 @@ extension SwiftttCamera {
         maxZoomFactor = zoom?.maxScale ?? maxZoomFactor
     }
     
-    private var isCurrentlyVisibleOnMain: Bool {
-        DispatchQueue.main.sync {
-            return isViewLoaded && view.window != nil
-        }
-    }
 }
 
 extension SwiftttCamera : FocusDelegate {
@@ -637,36 +626,12 @@ extension SwiftttCamera : AVCapturePhotoCaptureDelegate {
 }
 
 
-/// Utility class for waiting operations
-private class Wait {
-    /// Waits until the predicate returns true or times out
-    /// - Parameters:
-    ///   - predicate: A closure that returns a boolean value
-    ///   - interval: How frequently to check the predicate (default: 0.1 seconds)
-    ///   - timeout: Maximum time to wait (default: 10 seconds)
-    /// - Throws: TimeoutError if the predicate doesn't become true within the timeout
-    public static func until(
-        predicate: @escaping @autoclosure () -> Bool,
-        interval: TimeInterval = 0.1,
-        timeout: TimeInterval = 10.0,
-        throwingOnTimeout error: Error
-    ) async throws {
-        let start = CFAbsoluteTimeGetCurrent()
-        while !predicate() {
-            // Check if we've exceeded the timeout
-            if CFAbsoluteTimeGetCurrent() - start > timeout {
-                throw error
-            }
-            
-            // Wait for the specified interval before checking again
-            try await Task.sleep(nanoseconds: UInt64(interval * 1_000_000_000))
+fileprivate extension UIViewController {
+    var isCurrentlyVisible: Bool {
+        DispatchQueue.main.sync {
+            return isViewLoaded && view.window != nil
         }
     }
+
 }
 
-
-fileprivate extension UIViewController {
-    var isCurrentlyVisible: Bool{
-        return isViewLoaded && view.window != nil
-    }
-}
